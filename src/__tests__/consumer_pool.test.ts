@@ -5,8 +5,8 @@ import {seedTopic, withTopicCleanup, deleteTopic} from './kafka_utils';
 import {IAction} from '../types';
 import uuid from 'uuid';
 
-describe(ConsumerPool.name, function() {
-    it('notifies observers of new messages only', async function() {
+describe(ConsumerPool.name, function () {
+    it('notifies observers of new messages only', async function () {
         await withTopicCleanup(['bart-report-card-arrived'])(async ([topic]) => {
             const transactionId = 'super-cool-transaction';
 
@@ -24,7 +24,7 @@ describe(ConsumerPool.name, function() {
             pool.registerTopicObserver({
                 transactionId,
                 topic,
-                observer: action => receivedMessages.push(action)
+                observer: (action) => receivedMessages.push(action)
             });
 
             await pool.streamActionsFromTopic(topic);
@@ -39,7 +39,7 @@ describe(ConsumerPool.name, function() {
             // give it some time to deliver
             await Bluebird.delay(1000);
 
-            await pool.disconnectConsumers();
+            await pool.stop();
 
             expect(receivedMessages.map(({payload}) => payload)).toContainEqual({
                 new_message: true
@@ -47,7 +47,7 @@ describe(ConsumerPool.name, function() {
         });
     }, 8000);
 
-    it('creates topics that do not already exist', async function() {
+    it('creates topics that do not already exist', async function () {
         const newTopic = uuid.v4();
 
         try {
@@ -74,7 +74,7 @@ describe(ConsumerPool.name, function() {
 
             pool.stopTransaction(transactionId);
 
-            await pool.disconnectConsumers();
+            await pool.stop();
 
             const admin = kafka.admin();
 

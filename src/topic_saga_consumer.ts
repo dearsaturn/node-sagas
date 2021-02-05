@@ -262,7 +262,7 @@ export class TopicSagaConsumer<Payload, Context extends Record<string, any> = Re
 
         await this.consumer.stop();
         await this.consumer.disconnect();
-        await this.consumerPool.disconnectConsumers();
+        await this.consumerPool.stop();
         await this.throttledProducer.disconnect();
     }
 

@@ -20,8 +20,8 @@ const topics = {
     COPY_CAMPAIGN_FAILURE: 'copy-campaign-failure'
 };
 
-describe(SagaRunner.name, function() {
-    describe('.runSaga', function() {
+describe(SagaRunner.name, function () {
+    describe('.runSaga', function () {
         function coinFlip() {
             return Math.random() >= 0.5;
         }
@@ -101,7 +101,7 @@ describe(SagaRunner.name, function() {
 
         it(
             'runs a saga to completion',
-            async function() {
+            async function () {
                 await withTopicCleanup(Object.values(topics))(async () => {
                     const transactionId = 'run-saga-trx-id';
                     const remoteSaga = createMockRemoteCopyCampaignSaga(transactionId);
@@ -137,7 +137,7 @@ describe(SagaRunner.name, function() {
                                 timestamp: (new Date().valueOf() / 1000).toString()
                             }
                         },
-                        function*({payload: {campaignId}}, {effects}) {
+                        function* ({payload: {campaignId}}, {effects}) {
                             const {actionChannel, put, race, take} = effects;
 
                             const copySuccesschannel: ActionChannel<ICloneCampaignPayload> = yield actionChannel(
@@ -183,9 +183,8 @@ describe(SagaRunner.name, function() {
                     );
 
                     /** the next line asserts this. calm down */
-                    const finalResult = ((cloneSuccess || cloneFailure) as any) as IAction<
-                        ICopyResultPayload
-                    >;
+                    const finalResult = ((cloneSuccess ||
+                        cloneFailure) as any) as IAction<ICopyResultPayload>;
 
                     expect(finalResult).toBeDefined();
 
@@ -195,7 +194,7 @@ describe(SagaRunner.name, function() {
 
                     expect(finalResult.transaction_id).toEqual(transactionId);
 
-                    await consumerPool.disconnectConsumers();
+                    await consumerPool.stop();
                     await throttledProducer.disconnect();
                     await remoteSaga.stop();
                 });

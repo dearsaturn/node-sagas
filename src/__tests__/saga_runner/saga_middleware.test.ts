@@ -6,8 +6,8 @@ import {ThrottledProducer} from '../../throttled_producer';
 import {EffectBuilder} from '../../effect_builder';
 import {isPutEffectDescription} from '../../type_guard';
 
-describe('Saga middleware', function() {
-    it('calls middlewares in the correct order', async function() {
+describe('Saga middleware', function () {
+    it('calls middlewares in the correct order', async function () {
         await withTopicCleanup(['middleware-test-order'])(async ([topic]) => {
             const calls: string[] = [];
             const consumerPool = new ConsumerPool(kafka, topic);
@@ -15,13 +15,13 @@ describe('Saga middleware', function() {
             await throttledProducer.connect();
 
             const sagaRunner = new SagaRunner(consumerPool, throttledProducer, [
-                next => async (effectDescription, ctx) => {
+                (next) => async (effectDescription, ctx) => {
                     calls.push('first');
                     const result = await next(effectDescription, ctx);
                     calls.push('fourth');
                     return result;
                 },
-                next => async (effectDescription, ctx) => {
+                (next) => async (effectDescription, ctx) => {
                     calls.push('second');
                     const result = await next(effectDescription, ctx);
                     calls.push('third');
@@ -46,19 +46,19 @@ describe('Saga middleware', function() {
                         timestamp: (new Date().valueOf() / 1000).toString()
                     }
                 },
-                function*(_, {effects}) {
+                function* (_, {effects}) {
                     yield effects.put(topic);
                 }
             );
 
-            await consumerPool.disconnectConsumers();
+            await consumerPool.stop();
             await throttledProducer.disconnect();
 
             expect(calls).toEqual(['first', 'second', 'third', 'fourth']);
         });
     });
 
-    it('allows modifying effectDescriptions', async function() {
+    it('allows modifying effectDescriptions', async function () {
         await withTopicCleanup(['middleware-test-mutating-effect', 'redirected'])(
             async ([topic]) => {
                 const consumerPool = new ConsumerPool(kafka, topic);
@@ -68,14 +68,14 @@ describe('Saga middleware', function() {
                 let redirectedPattern: string | null = null;
 
                 const sagaRunner = new SagaRunner(consumerPool, throttledProducer, [
-                    next => async (effect, ctx) => {
+                    (next) => async (effect, ctx) => {
                         if (isPutEffectDescription(effect)) {
                             effect.pattern = 'redirected';
                         }
 
                         return await next(effect, ctx);
                     },
-                    next => async (effect, ctx) => {
+                    (next) => async (effect, ctx) => {
                         if (isPutEffectDescription(effect)) {
                             redirectedPattern = effect.pattern;
                         }
@@ -101,12 +101,12 @@ describe('Saga middleware', function() {
                             timestamp: (new Date().valueOf() / 1000).toString()
                         }
                     },
-                    function*(_, {effects}) {
+                    function* (_, {effects}) {
                         yield effects.put(topic);
                     }
                 );
 
-                await consumerPool.disconnectConsumers();
+                await consumerPool.stop();
                 await throttledProducer.disconnect();
 
                 expect(redirectedPattern).toEqual('redirected');
@@ -114,7 +114,7 @@ describe('Saga middleware', function() {
         );
     });
 
-    it('bubbles errors up from middleware into the saga', async function() {
+    it('bubbles errors up from middleware into the saga', async function () {
         await withTopicCleanup(['middleware-test-error-bubbling'])(async ([topic]) => {
             const consumerPool = new ConsumerPool(kafka, topic);
             const throttledProducer = new ThrottledProducer(kafka);
@@ -145,7 +145,7 @@ describe('Saga middleware', function() {
                         timestamp: (new Date().valueOf() / 1000).toString()
                     }
                 },
-                function*(_, {effects}) {
+                function* (_, {effects}) {
                     try {
                         yield effects.put(topic);
                     } catch (err) {
@@ -154,13 +154,13 @@ describe('Saga middleware', function() {
                 }
             );
 
-            await consumerPool.disconnectConsumers();
+            await consumerPool.stop();
             await throttledProducer.disconnect();
             expect(error).toMatchInlineSnapshot(`[Error: Symbolic Error]`);
         });
     });
 
-    it('runs effects with middleware from error continuation in the saga', async function() {
+    it('runs effects with middleware from error continuation in the saga', async function () {
         await withTopicCleanup(['middleware-test-error-bubbling'])(async ([topic]) => {
             const consumerPool = new ConsumerPool(kafka, topic);
             const throttledProducer = new ThrottledProducer(kafka);
@@ -192,7 +192,7 @@ describe('Saga middleware', function() {
                         timestamp: (new Date().valueOf() / 1000).toString()
                     }
                 },
-                function*(_, {effects}) {
+                function* (_, {effects}) {
                     try {
                         throw new Error('Asdf1');
                     } catch (err) {
@@ -201,7 +201,7 @@ describe('Saga middleware', function() {
                 }
             );
 
-            await consumerPool.disconnectConsumers();
+            await consumerPool.stop();
             await throttledProducer.disconnect();
             expect(spyMiddleware.mock.calls.length).toEqual(1);
         });

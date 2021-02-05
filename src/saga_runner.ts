@@ -10,7 +10,7 @@ import {
     Middleware,
     Next
 } from './types';
-import {ConsumerPool} from './consumer_pool';
+import {ActionStreamReader} from './abstract_action_stream_reader';
 import {ThrottledProducer} from './throttled_producer';
 import {
     isActionChannelEffectDescription,
@@ -23,14 +23,18 @@ import {
     isGenerator
 } from './type_guard';
 
-export class SagaRunner<InitialActionPayload, Context extends IBaseSagaContext> {
+export class SagaRunner<
+    InitialActionPayload,
+    Context extends IBaseSagaContext,
+    Reader extends ActionStreamReader = ActionStreamReader
+> {
     protected runEffectWithMiddleware: <EffectDescription extends IEffectDescription>(
         effect: EffectDescription,
         context: Context
     ) => Promise<any>;
 
     constructor(
-        private consumerPool: ConsumerPool,
+        private streamReader: Reader,
         private throttledProducer: ThrottledProducer,
         middlewares: Array<Middleware<IEffectDescription, Context>> = []
     ) {
@@ -50,9 +54,9 @@ export class SagaRunner<InitialActionPayload, Context extends IBaseSagaContext> 
         context: Context,
         saga: Saga<InitialActionPayload, Context>
     ): Promise<any> => {
-        this.consumerPool.startTransaction(initialAction.transaction_id);
+        this.streamReader.startTransaction(initialAction.transaction_id);
         const result = await this.runGeneratorFsm(saga(initialAction, context), context);
-        this.consumerPool.stopTransaction(initialAction.transaction_id);
+        this.streamReader.stopTransaction(initialAction.transaction_id);
         return result;
     };
 
@@ -65,7 +69,7 @@ export class SagaRunner<InitialActionPayload, Context extends IBaseSagaContext> 
             const {effects, combinator} = effectDescription;
 
             if (Array.isArray(effects)) {
-                const withRunningEffects: Array<Promise<any>> = effects.map(effect =>
+                const withRunningEffects: Array<Promise<any>> = effects.map((effect) =>
                     this.runEffect(effect, context)
                 );
 
@@ -90,13 +94,13 @@ export class SagaRunner<InitialActionPayload, Context extends IBaseSagaContext> 
 
         if (isActionChannelEffectDescription(effectDescription)) {
             for (const topic of effectDescription.topics) {
-                this.consumerPool.registerTopicObserver({
+                this.streamReader.registerStreamObserver({
                     transactionId: effectDescription.transactionId,
-                    topic,
+                    streamId: topic,
                     observer: effectDescription.observer
                 });
 
-                await this.consumerPool.streamActionsFromTopic(topic);
+                await this.streamReader.subscribeToStream(topic);
             }
 
             return effectDescription;
@@ -115,14 +119,14 @@ export class SagaRunner<InitialActionPayload, Context extends IBaseSagaContext> 
         }
 
         if (isTakeEffectDescription(effectDescription)) {
-            await Bluebird.map(effectDescription.topics, async topic => {
-                this.consumerPool.registerTopicObserver({
+            await Bluebird.map(effectDescription.topics, async (topic) => {
+                this.streamReader.registerStreamObserver({
                     transactionId: effectDescription.transactionId,
-                    topic,
+                    streamId: topic,
                     observer: effectDescription.observer
                 });
 
-                await this.consumerPool.streamActionsFromTopic(topic);
+                await this.streamReader.subscribeToStream(topic);
             });
 
             return await effectDescription.buffer.take();

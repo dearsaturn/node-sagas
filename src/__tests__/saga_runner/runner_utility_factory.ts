@@ -39,7 +39,7 @@ export async function runnerUtilityFactory() {
         },
         async closePools() {
             consumerPool.stopTransaction(transactionId);
-            await consumerPool.disconnectConsumers();
+            await consumerPool.stop();
             await throttledProducer.disconnect();
         }
     };
