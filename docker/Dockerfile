@@ -1,4 +1,4 @@
-FROM node:10.16.3-stretch
+FROM node:12.20-buster
 RUN mkdir -p /code
 WORKDIR /code
 ADD . /code
